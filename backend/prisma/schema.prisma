@@ -35,6 +35,19 @@ enum XeroConnectionStatus {
   reauth_required
 }
 
+enum XeroTimeSyncStatus {
+  pending
+  synced
+  failed
+  skipped
+}
+
+enum XeroProjectLinkMethod {
+  manual
+  prefix
+  created
+}
+
 model Company {
   id        String   @id @default(uuid())
   name      String
@@ -50,6 +63,7 @@ model Company {
   invitations CompanyInvitation[]
   xeroConnection    XeroConnection?
   xeroOAuthPendings XeroOAuthPending[]
+  xeroProjectLinks  XeroProjectLink[]
 }
 
 model User {
@@ -87,6 +101,7 @@ model User {
   xeroConnectionsAsConnector XeroConnection[] @relation("XeroConnectedBy")
   xeroOAuthPendings      XeroOAuthPending[]
   memberships            CompanyMembership[]
+  xeroProjectLinksLinked XeroProjectLink[] @relation("XeroProjectLinkedBy")
 }
 
 /// Per-company access for a user (admins may belong to multiple companies).
@@ -138,6 +153,7 @@ model Project {
   conversations   Conversation[]
   jobCompletions  JobCompletion[]
   incidents       Incident[]
+  xeroProjectLink XeroProjectLink?
 }
 
 model CompanyInvitation {
@@ -183,6 +199,8 @@ model TimeEntry {
   approvedAt       DateTime? @map("approved_at")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  xeroTimeSync XeroTimeSync?
 }
 
 model Conversation {
@@ -323,6 +341,11 @@ model XeroConnection {
   connectedAt          DateTime?            @map("connected_at")
   lastRefreshedAt      DateTime?            @map("last_refreshed_at")
   lastSyncedAt         DateTime?            @map("last_synced_at")
+  /// Xero Projects user used when a SiteSync staff email has no matching Xero user.
+  defaultXeroUserId    String?              @map("default_xero_user_id")
+  defaultXeroUserName  String?              @map("default_xero_user_name")
+  lastSyncError        String?              @map("last_sync_error") @db.Text
+  lastTimePushAt       DateTime?            @map("last_time_push_at")
   createdAt            DateTime             @default(now()) @map("created_at")
   updatedAt            DateTime             @updatedAt @map("updated_at")
 
@@ -357,4 +380,54 @@ model XeroAuditLog {
   @@index([companyId])
   @@index([createdAt])
   @@map("xero_audit_logs")
+}
+
+/// SiteSync project linked to one Xero Projects project inside the company's tenant.
+model XeroProjectLink {
+  id              String                @id @default(uuid())
+  projectId       String                @unique @map("project_id")
+  project         Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  companyId       String                @map("company_id")
+  company         Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  xeroProjectId   String                @map("xero_project_id")
+  xeroProjectName String                @map("xero_project_name")
+  xeroContactId   String?               @map("xero_contact_id")
+  xeroTaskId      String?               @map("xero_task_id")
+  method          XeroProjectLinkMethod
+  linkedByUserId  String?               @map("linked_by_user_id")
+  linkedBy        User?                 @relation("XeroProjectLinkedBy", fields: [linkedByUserId], references: [id], onDelete: SetNull)
+  linkedAt        DateTime              @default(now()) @map("linked_at")
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+
+  @@unique([companyId, xeroProjectId])
+  @@index([companyId])
+  @@map("xero_project_links")
+}
+
+/// One row per approved timesheet that has been considered for Xero time push.
+model XeroTimeSync {
+  id              String             @id @default(uuid())
+  timeEntryId     String             @unique @map("time_entry_id")
+  timeEntry       TimeEntry          @relation(fields: [timeEntryId], references: [id], onDelete: Cascade)
+  companyId       String             @map("company_id")
+  projectId       String             @map("project_id")
+  status          XeroTimeSyncStatus @default(pending)
+  xeroTimeId      String?            @unique @map("xero_time_id")
+  xeroProjectId   String?            @map("xero_project_id")
+  xeroTenantId    String?            @map("xero_tenant_id")
+  xeroUserId      String?            @map("xero_user_id")
+  xeroTaskId      String?            @map("xero_task_id")
+  /// email = staff email matched a Xero project user; default = company fallback user.
+  userMatch       String?            @map("user_match")
+  durationMinutes Int?               @map("duration_minutes")
+  error           String?            @db.Text
+  attempts        Int                @default(0)
+  lastAttemptAt   DateTime?          @map("last_attempt_at")
+  syncedAt        DateTime?          @map("synced_at")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  @@index([companyId, status])
+  @@map("xero_time_syncs")
 }

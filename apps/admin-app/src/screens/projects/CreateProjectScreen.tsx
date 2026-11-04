@@ -25,6 +25,7 @@ import {
   useAuthContext,
   usersService,
 } from '@sitesync/shared';
+import { XeroProjectLinkPanel } from '../../components/XeroProjectLinkPanel';
 import type { ProjectType, User } from '@sitesync/shared';
 import type { RouteProp } from '@react-navigation/native';
 import type { ProjectsStackParamList } from '../../navigation/ProjectsStack';
@@ -550,6 +551,10 @@ export function CreateProjectScreen() {
             </View>
           ))}
         </View>
+      ) : null}
+
+      {isEditMode && editingProject && (user?.role === 'admin' || user?.role === 'superadmin') ? (
+        <XeroProjectLinkPanel companyId={editingProject.company_id} projectId={editingProject.id} />
       ) : null}
 
       <TouchableOpacity

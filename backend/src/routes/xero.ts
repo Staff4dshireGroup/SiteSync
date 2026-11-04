@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import type { AuthedRequest } from '../middleware/auth';
-import { authMiddleware, effectiveRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
 import { prisma } from '../db';
 import { encryptAtRest, decryptAtRest } from '../lib/tokenEncryption';
+import { assertCompanyAdmin, resolveCompanyId } from '../lib/xeroAccess';
 import { logXeroAudit } from '../lib/xeroAudit';
 import * as XeroOAuth from '../services/xeroOAuth';
 import {
@@ -12,6 +13,9 @@ import {
   xeroAccountingGet,
   xeroAccountingPost,
 } from '../services/xeroConnectionService';
+import { forgetLinksIfTenantChanged } from '../services/xeroProjectSync';
+import { getCompanyXeroSummary } from '../services/xeroTimeSync';
+import { registerXeroSyncRoutes } from './xeroSyncRoutes';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 
@@ -23,23 +27,6 @@ type OAuthStatePayload = {
   companyId: string;
   userId: string;
 };
-
-function resolveCompanyId(req: AuthedRequest, queryOrBody: { company_id?: string; companyId?: string }): string | null {
-  const raw = queryOrBody.company_id ?? queryOrBody.companyId;
-  if (req.userRole === 'superadmin') {
-    return raw ? String(raw) : null;
-  }
-  return req.companyId ?? null;
-}
-
-async function assertCompanyAdmin(req: AuthedRequest, companyId: string): Promise<boolean> {
-  if (req.userRole === 'superadmin') {
-    const c = await prisma.company.findUnique({ where: { id: companyId } });
-    return !!c;
-  }
-  if (effectiveRole(req) !== 'admin') return false;
-  return req.companyId === companyId;
-}
 
 const router = Router();
 
@@ -146,6 +133,7 @@ router.get('/oauth/callback', async (req, res) => {
       return res.status(409).json({ error: 'This Xero organisation is already linked to another company' });
     }
 
+    const previous = await prisma.xeroConnection.findUnique({ where: { companyId: payload.companyId } });
     const { accessEnc, refreshEnc, expiresAt } = encryptTokenBundle({
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
@@ -185,6 +173,7 @@ router.get('/oauth/callback', async (req, res) => {
       },
     });
 
+    await forgetLinksIfTenantChanged(payload.companyId, previous?.xeroTenantId, c.tenantId);
     await logXeroAudit({
       companyId: payload.companyId,
       userId: payload.userId,
@@ -320,7 +309,8 @@ router.get('/status', async (req: AuthedRequest, res) => {
             xero_connected: false,
           };
 
-  res.json(payload);
+  const summary = await getCompanyXeroSummary(companyId);
+  res.json({ ...payload, ...summary });
 });
 
 router.post('/disconnect', async (req: AuthedRequest, res) => {
@@ -417,6 +407,7 @@ router.post('/pending/complete', async (req: AuthedRequest, res) => {
     expires_in: raw.expires_in,
     scope: raw.scope,
   };
+  const previous = await prisma.xeroConnection.findUnique({ where: { companyId: p.companyId } });
   const { accessEnc, refreshEnc, expiresAt } = encryptTokenBundle(tokens);
   const refreshExpiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
 
@@ -452,6 +443,7 @@ router.post('/pending/complete', async (req: AuthedRequest, res) => {
   });
 
   await prisma.xeroOAuthPending.delete({ where: { id: p.id } });
+  await forgetLinksIfTenantChanged(p.companyId, previous?.xeroTenantId, chosen.tenantId);
 
   await logXeroAudit({
     companyId: p.companyId,
@@ -727,5 +719,7 @@ router.get('/test/organisation', async (req: AuthedRequest, res) => {
     res.status(502).json({ error: 'xero_request_failed', message: msg });
   }
 });
+
+registerXeroSyncRoutes(router);
 
 export default router;

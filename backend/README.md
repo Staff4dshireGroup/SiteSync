@@ -88,6 +88,7 @@ Change the password after first login in a real deployment.
 | `GET /api/job-completions` … | |
 | `GET /api/incidents` … | |
 | `GET /api/onboarding` … | |
+| `GET /api/xero/...` | Company Xero OAuth, projects, and approved time. See `docs/XERO_INTEGRATION.md` |
 
 Socket.io: same origin as `PORT`; client sends `auth: { token }` (JWT).
 

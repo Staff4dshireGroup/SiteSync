@@ -19,6 +19,8 @@ export { governanceService } from './governanceService';
 export { xeroService } from './xeroService';
 export type {
   XeroStatusResponse,
+  XeroSyncSummary,
+  XeroTimeSyncCounts,
   XeroInvoiceListItem,
   XeroInvoicesResponse,
   XeroTenantOption,
@@ -26,6 +28,12 @@ export type {
   XeroAccountsResponse,
   XeroCreateInvoiceLine,
   XeroCreateInvoicePayload,
+  XeroProjectOption,
+  XeroProjectLinkView,
+  XeroContactOption,
+  XeroUserOption,
+  XeroTimePushResult,
+  XeroAuditEntry,
 } from './xeroService';
 export { pushService } from './pushService';
 export { trashService } from './trashService';

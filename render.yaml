@@ -40,4 +40,18 @@ services:
         value: https://sitesync-backend.onrender.com
       - key: SEED_ON_DEPLOY
         value: "false"
+      - key: XERO_CLIENT_ID
+        sync: false
+      - key: XERO_CLIENT_SECRET
+        sync: false
+      - key: XERO_REDIRECT_URI
+        value: https://sitesync-backend.onrender.com/api/xero/oauth/callback
+      - key: XERO_TOKEN_ENCRYPTION_KEY
+        generateValue: true
+      - key: XERO_SCOPES
+        sync: false
+      - key: XERO_TOKEN_REFRESH_JOB
+        value: "true"
+      - key: XERO_PUSH_ON_APPROVAL
+        value: "true"
 

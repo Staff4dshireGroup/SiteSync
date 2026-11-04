@@ -208,7 +208,7 @@ Copy `backend/.env.example` to `backend/.env` and configure:
 - `SMTP_SECURE` (`false` for 587 STARTTLS, `true` for 465 SSL)
 - `SMTP_USER`
 - `SMTP_PASS`
-- Xero and other optional integration values as needed
+- Xero (see [docs/XERO_INTEGRATION.md](docs/XERO_INTEGRATION.md)): `XERO_CLIENT_ID`, `XERO_CLIENT_SECRET`, `XERO_REDIRECT_URI`, `XERO_TOKEN_ENCRYPTION_KEY`. No secrets are committed. `render.yaml` lists the same keys for the hosted API.
 
 For Neon:
 - Set `DATABASE_URL` to the pooled (`-pooler`) connection string for app runtime.

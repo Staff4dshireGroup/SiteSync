@@ -22,6 +22,8 @@ const XERO_SCOPES_GRANULAR = [
   'accounting.settings.read',
   'accounting.invoices',
   'accounting.contacts.read',
+  // Projects API is not part of the March 2026 accounting granular-scope split.
+  'projects',
 ].join(' ');
 
 export function getXeroScopes(): string {
