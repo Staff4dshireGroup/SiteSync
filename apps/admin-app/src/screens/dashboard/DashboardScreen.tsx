@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
+import { CommonActions } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigation } from '@react-navigation/native';
@@ -120,9 +121,10 @@ export function DashboardScreen() {
     title: string;
     subtitle: string;
     icon: keyof typeof Ionicons.glyphMap;
-    route: keyof DashboardStackParamList;
+    route: keyof DashboardStackParamList | 'VehiclesTab';
     need?: Capability;
   }[] = [
+    { title: 'Vehicles', subtitle: 'Fleet, allocations and checks', icon: 'car-outline', route: 'VehiclesTab' },
     { title: 'Governance', subtitle: 'Global platform overview', icon: 'globe-outline', route: 'Governance', need: 'cross_company' },
     { title: 'Users', subtitle: 'Team & roles', icon: 'people-outline', route: 'Users', need: 'manage_users' },
     { title: 'Projects', subtitle: 'Sites & jobs', icon: 'business-outline', route: 'Projects', need: 'manage_projects' },
@@ -223,7 +225,13 @@ export function DashboardScreen() {
           <Pressable
             key={item.route}
             style={({ pressed }) => [styles.quickCardOuter, pressed && styles.quickCardPressed]}
-            onPress={() => navigation.navigate(item.route)}
+            onPress={() => {
+              if (item.route === 'VehiclesTab') {
+                navigation.dispatch(CommonActions.navigate({ name: 'Vehicles' }));
+                return;
+              }
+              navigation.navigate(item.route);
+            }}
           >
             <LinearGradient
               colors={['#e8ddfa', '#d4c4ec', '#c5b0e0']}

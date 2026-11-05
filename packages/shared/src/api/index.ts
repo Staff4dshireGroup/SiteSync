@@ -30,3 +30,4 @@ export type {
 export { pushService } from './pushService';
 export { trashService } from './trashService';
 export type { TrashData, TrashProject, TrashUser } from './trashService';
+export { vehiclesService } from './vehiclesService';

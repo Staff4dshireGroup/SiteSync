@@ -28,6 +28,7 @@ web-build/
 # Runtime uploads and generated assets
 backend/uploads/chat/*
 backend/uploads/profile/*
+backend/uploads/vehicle/*
 !backend/uploads/chat/.gitkeep
 !backend/uploads/profile/.gitkeep
 

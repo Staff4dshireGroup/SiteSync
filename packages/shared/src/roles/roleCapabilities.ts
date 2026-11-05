@@ -15,7 +15,9 @@ export type Capability =
   | 'view_reports'
   | 'manage_invoices'
   | 'inductions_admin'
-  | 'cross_company';
+  | 'cross_company'
+  | 'manage_vehicles'
+  | 'allocate_vehicles';
 
 const BY_ROLE: Record<UserRole, Capability[]> = {
   staff: [
@@ -34,6 +36,7 @@ const BY_ROLE: Record<UserRole, Capability[]> = {
     'approve_timesheets',
     'supervisor_compliance',
     'view_reports',
+    'allocate_vehicles',
   ],
   admin: [
     'sign_in_out',
@@ -48,6 +51,8 @@ const BY_ROLE: Record<UserRole, Capability[]> = {
     'view_reports',
     'manage_invoices',
     'inductions_admin',
+    'manage_vehicles',
+    'allocate_vehicles',
   ],
   superadmin: [
     'manage_users',
@@ -56,6 +61,8 @@ const BY_ROLE: Record<UserRole, Capability[]> = {
     'view_reports',
     'inductions_admin',
     'cross_company',
+    'manage_vehicles',
+    'allocate_vehicles',
   ],
 };
 

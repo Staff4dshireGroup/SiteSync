@@ -10,3 +10,4 @@ export * from './document';
 export * from './onboarding';
 export * from './compliance';
 export * from './governance';
+export * from './vehicle';

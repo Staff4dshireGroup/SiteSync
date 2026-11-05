@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { chatService, useAuthContext } from '@sitesync/shared';
 import { DashboardStack } from './DashboardStack';
+import { VehicleStack } from './VehicleStack';
 import { ChatStack } from './ChatStack';
 import { SettingsStack } from './SettingsStack';
 
@@ -41,6 +42,14 @@ export function MainTabs() {
         options={{
           tabBarLabel: 'Home',
           tabBarIcon: tabIcon('home-outline'),
+        }}
+      />
+      <Tab.Screen
+        name="Vehicle"
+        component={VehicleStack}
+        options={{
+          tabBarLabel: 'Vehicle',
+          tabBarIcon: tabIcon('car-outline'),
         }}
       />
       <Tab.Screen

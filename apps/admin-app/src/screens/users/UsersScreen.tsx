@@ -15,10 +15,10 @@ import {
   ScrollView,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { useNavigation } from '@react-navigation/native';
+import { CommonActions, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { uploadsService, usersService, useAuthContext, useCompanyContext } from '@sitesync/shared';
+import { uploadsService, usersService, useAuthContext, useCompanyContext, vehiclesService } from '@sitesync/shared';
 import type { User } from '@sitesync/shared';
 import type { UsersStackParamList } from '../../navigation/UsersStack';
 
@@ -72,18 +72,43 @@ function UserRow({ item, onOpen }: { item: User; onOpen: (u: User) => void }) {
   );
 }
 
+function CurrentVehicle({ userId, onOpen }: { userId: string; onOpen: (vehicleId: string) => void }) {
+  const { data: vehicles = [], isLoading } = useQuery({
+    queryKey: ['vehicles', 'allocated', userId],
+    queryFn: () => vehiclesService.list({ allocated_to: userId }),
+  });
+  return (
+    <View style={{ marginTop: 16 }}>
+      <Text style={styles.inputLabel}>Current vehicle</Text>
+      {isLoading ? <Text style={styles.modalSubtitle}>Loading vehicle…</Text> : null}
+      {!isLoading && vehicles.length === 0 ? <Text style={styles.modalSubtitle}>No vehicle allocated.</Text> : null}
+      {vehicles.map((vehicle) => (
+        <TouchableOpacity key={vehicle.id} style={styles.vehicleCard} onPress={() => onOpen(vehicle.id)}>
+          <Text style={styles.vehicleReg}>{vehicle.registration_display}</Text>
+          <Text style={styles.modalSubtitle}>
+            {vehicle.make} {vehicle.model}
+            {vehicle.block_reasons[0] ? ` · ${vehicle.block_reasons[0].message}` : ''}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
 function UserEditModal({
   user,
   onClose,
   onSave,
   onDelete,
+  onOpenVehicle,
   saving,
   deleting,
 }: {
   user: User;
   onClose: () => void;
-  onSave: (d: Draft) => Promise<void>;
+  onSave: (d: Draft) => Promise<unknown>;
   onDelete: (u: User) => void;
+  onOpenVehicle: (vehicleId: string) => void;
   saving: boolean;
   deleting: boolean;
 }) {
@@ -174,6 +199,7 @@ function UserEditModal({
                 {draft.is_active ? 'Active' : 'Inactive'}
               </Text>
             </TouchableOpacity>
+            <CurrentVehicle userId={user.id} onOpen={onOpenVehicle} />
           </ScrollView>
           <View style={styles.modalFooter}>
             <TouchableOpacity style={styles.deleteBtn} onPress={() => onDelete(user)} disabled={deleting || saving}>
@@ -298,6 +324,15 @@ export function UsersScreen() {
           onClose={() => setSelected(null)}
           onSave={async (draft) => updateMutation.mutateAsync({ id: selected.id, draft })}
           onDelete={confirmDelete}
+          onOpenVehicle={(vehicleId) => {
+            setSelected(null);
+            navigation.dispatch(
+              CommonActions.navigate({
+                name: 'Vehicles',
+                params: { screen: 'VehicleDetail', params: { vehicleId } },
+              })
+            );
+          }}
           saving={updateMutation.isPending}
           deleting={deleteMutation.isPending}
         />
@@ -367,6 +402,15 @@ const styles = StyleSheet.create({
   avatarFallback: { backgroundColor: '#d8d6e8', alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: '#4a026f', fontWeight: '700' },
   empty: { textAlign: 'center', color: '#7a7a84', marginTop: 40 },
+  vehicleCard: {
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.7)',
+  },
+  vehicleReg: { fontWeight: '800', color: '#4a026f', fontSize: 16 },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.35)',

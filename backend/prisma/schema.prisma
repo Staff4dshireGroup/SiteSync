@@ -50,6 +50,7 @@ model Company {
   invitations CompanyInvitation[]
   xeroConnection    XeroConnection?
   xeroOAuthPendings XeroOAuthPending[]
+  vehicles          Vehicle[]
 }
 
 model User {
@@ -87,6 +88,12 @@ model User {
   xeroConnectionsAsConnector XeroConnection[] @relation("XeroConnectedBy")
   xeroOAuthPendings      XeroOAuthPending[]
   memberships            CompanyMembership[]
+  vehicleAllocations     VehicleAllocation[] @relation("VehicleAllocationAssignee")
+  vehicleAllocationsAssigned VehicleAllocation[] @relation("VehicleAllocationAssigner")
+  vehicleAllocationsEnded VehicleAllocation[] @relation("VehicleAllocationEnder")
+  vehicleChecks          VehicleCheck[]
+  vehicleDefectsResolved VehicleDefect[] @relation("VehicleDefectResolver")
+  vehicleDayUses         VehicleDayUse[]
 }
 
 /// Per-company access for a user (admins may belong to multiple companies).
@@ -138,6 +145,8 @@ model Project {
   conversations   Conversation[]
   jobCompletions  JobCompletion[]
   incidents       Incident[]
+  vehicles        Vehicle[]
+  vehicleAllocations VehicleAllocation[]
 }
 
 model CompanyInvitation {
@@ -357,4 +366,154 @@ model XeroAuditLog {
   @@index([companyId])
   @@index([createdAt])
   @@map("xero_audit_logs")
+}
+
+enum VehicleType {
+  van
+  pickup
+  car
+  tipper
+  plant_other
+}
+
+enum VehicleFuelType {
+  petrol
+  diesel
+  electric
+  hybrid
+  other
+}
+
+enum VehicleStatus {
+  active
+  off_road
+  sold
+}
+
+enum VehicleCheckResult {
+  pass
+  fail
+}
+
+enum VehicleDefectStatus {
+  open
+  resolved
+}
+
+/// Company vehicle register. Archived rows stay in the table; there is no hard delete.
+model Vehicle {
+  id                   String           @id @default(uuid())
+  companyId            String           @map("company_id")
+  company              Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  registration         String
+  make                 String
+  model                String
+  type                 VehicleType
+  colour               String
+  fuelType             VehicleFuelType  @map("fuel_type")
+  vin                  String?
+  motDue               DateTime?        @map("mot_due") @db.Date
+  roadTaxDue           DateTime?        @map("road_tax_due") @db.Date
+  insuranceExpiry      DateTime?        @map("insurance_expiry") @db.Date
+  serviceDueDate       DateTime?        @map("service_due_date") @db.Date
+  serviceDueMileage    Int?             @map("service_due_mileage")
+  currentMileage       Int?             @map("current_mileage")
+  notes                String?          @db.Text
+  status               VehicleStatus    @default(active)
+  photoUrl             String?          @map("photo_url")
+  projectId            String?          @map("project_id")
+  project              Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  archivedAt           DateTime?        @map("archived_at")
+  /// UTC/London calendar day this vehicle last triggered a compliance notification.
+  complianceNotifiedOn DateTime?        @map("compliance_notified_on") @db.Date
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
+
+  allocations VehicleAllocation[]
+  checks      VehicleCheck[]
+  defects     VehicleDefect[]
+  dayUses     VehicleDayUse[]
+
+  @@unique([companyId, registration])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@map("vehicles")
+}
+
+/// Full history of who a vehicle was allocated to. Ending a row sets ended_at; rows are never deleted.
+model VehicleAllocation {
+  id               String    @id @default(uuid())
+  vehicleId        String    @map("vehicle_id")
+  vehicle          Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  userId           String    @map("user_id")
+  user             User      @relation("VehicleAllocationAssignee", fields: [userId], references: [id], onDelete: Cascade)
+  projectId        String?   @map("project_id")
+  project          Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  startDate        DateTime  @map("start_date") @db.Date
+  endDate          DateTime? @map("end_date") @db.Date
+  assignedByUserId String    @map("assigned_by_user_id")
+  assignedBy       User      @relation("VehicleAllocationAssigner", fields: [assignedByUserId], references: [id], onDelete: Restrict)
+  assignedAt       DateTime  @default(now()) @map("assigned_at")
+  endedAt          DateTime? @map("ended_at")
+  endedByUserId    String?   @map("ended_by_user_id")
+  endedBy          User?     @relation("VehicleAllocationEnder", fields: [endedByUserId], references: [id], onDelete: SetNull)
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  @@index([vehicleId])
+  @@index([userId])
+  @@index([vehicleId, endedAt])
+  @@map("vehicle_allocations")
+}
+
+model VehicleCheck {
+  id         String             @id @default(uuid())
+  vehicleId  String             @map("vehicle_id")
+  vehicle    Vehicle            @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  userId     String             @map("user_id")
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mileage    Int
+  hasDefects Boolean            @map("has_defects")
+  unsafe     Boolean            @default(false)
+  result     VehicleCheckResult
+  notes      String?            @db.Text
+  checkedOn  DateTime           @map("checked_on") @db.Date
+  createdAt  DateTime           @default(now()) @map("created_at")
+
+  defect VehicleDefect?
+
+  @@index([vehicleId, checkedOn])
+  @@map("vehicle_checks")
+}
+
+model VehicleDefect {
+  id               String              @id @default(uuid())
+  vehicleId        String              @map("vehicle_id")
+  vehicle          Vehicle             @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  checkId          String              @unique @map("check_id")
+  check            VehicleCheck        @relation(fields: [checkId], references: [id], onDelete: Cascade)
+  notes            String              @db.Text
+  status           VehicleDefectStatus @default(open)
+  resolvedByUserId String?             @map("resolved_by_user_id")
+  resolvedBy       User?               @relation("VehicleDefectResolver", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
+  resolvedAt       DateTime?           @map("resolved_at")
+  resolutionNotes  String?             @map("resolution_notes") @db.Text
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+
+  @@index([vehicleId, status])
+  @@map("vehicle_defects")
+}
+
+/// Record that a vehicle was cleared and sent out on a calendar day.
+model VehicleDayUse {
+  id        String   @id @default(uuid())
+  vehicleId String   @map("vehicle_id")
+  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usedOn    DateTime @map("used_on") @db.Date
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([vehicleId, usedOn])
+  @@map("vehicle_day_uses")
 }

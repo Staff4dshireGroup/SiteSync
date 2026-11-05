@@ -90,6 +90,10 @@ export function NotificationsScreen() {
   const attendToNotification = (item: Notification) => {
     if (!item.action_route) return;
     if (!item.read) markReadMutation.mutate(item.id);
+    if (item.action_route === 'Vehicles') {
+      navigation.navigate('Vehicles', item.action_params ?? undefined);
+      return;
+    }
     try {
       navigation.navigate('Home', {
         screen: item.action_route,

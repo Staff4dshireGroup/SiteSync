@@ -14,6 +14,7 @@ import { verifyToken } from './middleware/auth';
 import { prisma } from './db';
 import { startXeroTokenRefreshJob } from './jobs/xeroTokenRefreshJob';
 import { startOnboardingReminderJob } from './jobs/onboardingReminderJob';
+import { startVehicleComplianceJob } from './jobs/vehicleComplianceJob';
 
 const REQUESTED_PORT = Number(process.env.PORT) || 3001;
 const AUTO_FALLBACK_ENABLED = (process.env.PORT_AUTO_FALLBACK ?? 'true') !== 'false';
@@ -102,6 +103,7 @@ function startServer(port: number, attemptsLeft: number) {
     );
     startXeroTokenRefreshJob();
     startOnboardingReminderJob(prisma, io);
+    startVehicleComplianceJob(prisma, io);
   });
 }
 

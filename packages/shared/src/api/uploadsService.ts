@@ -56,4 +56,8 @@ export const uploadsService = {
   async uploadProfilePhoto(file: { uri: string; name: string; type: string }): Promise<string> {
     return postMultipart('/uploads/profile', file);
   },
+
+  async uploadVehiclePhoto(file: { uri: string; name: string; type: string }): Promise<string> {
+    return postMultipart('/uploads/vehicle', file);
+  },
 };

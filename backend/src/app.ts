@@ -20,6 +20,7 @@ import pushRoutes from './routes/push';
 import governanceRoutes from './routes/governance';
 import placesRoutes from './routes/places';
 import trashRoutes from './routes/trash';
+import vehiclesRoutes from './routes/vehicles';
 
 export function createApp() {
   const app = express();
@@ -63,6 +64,7 @@ export function createApp() {
   app.use('/api/governance', governanceRoutes);
   app.use('/api/places', placesRoutes);
   app.use('/api/trash', trashRoutes);
+  app.use('/api/vehicles', vehiclesRoutes);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

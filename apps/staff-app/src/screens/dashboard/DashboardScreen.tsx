@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { CommonActions } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigation } from '@react-navigation/native';
@@ -106,8 +107,14 @@ export function DashboardScreen() {
     title: string;
     subtitle: string;
     icon: keyof typeof Ionicons.glyphMap;
-    route: keyof StaffDashboardStackParamList;
+    route: Exclude<keyof StaffDashboardStackParamList, 'JobCompletionSubmit'> | 'VehicleTab';
   }[] = [
+    {
+      title: 'Vehicle',
+      subtitle: 'My vehicle, today’s check and defects',
+      icon: 'car-outline',
+      route: 'VehicleTab',
+    },
     {
       title: 'Sign in / out',
       subtitle: isSupervisor ? 'Optional: use only during project inspection' : 'Clock in with GPS',
@@ -196,7 +203,13 @@ export function DashboardScreen() {
           <Pressable
             key={item.route}
             style={({ pressed }) => [styles.quickCardOuter, pressed && styles.quickCardPressed]}
-            onPress={() => navigation.navigate(item.route)}
+            onPress={() => {
+              if (item.route === 'VehicleTab') {
+                navigation.dispatch(CommonActions.navigate({ name: 'Vehicle' }));
+                return;
+              }
+              navigation.navigate(item.route);
+            }}
           >
             <LinearGradient
               colors={['#e8ddfa', '#d4c4ec', '#c5b0e0']}
