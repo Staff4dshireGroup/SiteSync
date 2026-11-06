@@ -265,13 +265,12 @@ This document mirrors the structure of the legacy Flutter **Staff4dshire — Fea
 
 ## 16. Xero integration
 
-**Legacy**
-
-- OAuth + PKCE + token storage.
-
 **This repo**
 
-- **Staff → Xero** — `XeroPlaceholderScreen.tsx` with integration notes; no secrets in the app.
+- Company-scoped OAuth on the API (`backend/src/routes/xero.ts`). Tokens stay encrypted on the server.
+- **Admin → Settings → Xero** connects or disconnects a Xero organisation, shows sync status and errors, pulls contacts and projects, and pushes approved time.
+- **Admin → Edit project** links a SiteSync project to a Xero project (pick, job-number prefix, or create).
+- Staff app does not hold Xero credentials. See `docs/XERO_INTEGRATION.md`.
 
 ---
 
@@ -288,7 +287,7 @@ This document mirrors the structure of the legacy Flutter **Staff4dshire — Fea
 
 **Settings stack (admin)**
 
-- Documents, incidents, notifications, onboarding.
+- Documents, incidents, notifications, onboarding, Xero, recycle bin.
 
 ---
 
@@ -315,7 +314,7 @@ This document mirrors the structure of the legacy Flutter **Staff4dshire — Fea
 | **Company invitations** | **Not yet** |
 | **Compliance declarations** | **UI + local state** until APIs exist |
 | **Timesheet PDF/CSV export** | **Planned** (client-side generation) |
-| **Xero** | **Placeholder** |
+| **Xero** | **Server** (OAuth, project links, approved time push). Admin UI only |
 
 ---
 

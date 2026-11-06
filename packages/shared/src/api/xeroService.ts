@@ -56,7 +56,24 @@ export type XeroTenantOption = {
   connectionId: string;
 };
 
-export type XeroStatusResponse =
+export type XeroTimeSyncCounts = {
+  synced: number;
+  failed: number;
+  skipped: number;
+  pending: number;
+};
+
+export type XeroSyncSummary = {
+  last_sync_error?: string | null;
+  last_time_push_at?: string | null;
+  default_xero_user_id?: string | null;
+  default_xero_user_name?: string | null;
+  projects_scope?: boolean;
+  time_sync?: XeroTimeSyncCounts;
+  recent_errors?: { time_entry_id: string; error: string; at: string | null }[];
+};
+
+export type XeroStatusResponse = (
   | {
       status: 'connected';
       company_id: string;
@@ -85,7 +102,65 @@ export type XeroStatusResponse =
       company_id: string;
       xero_connected: false;
       pending_id: string;
-    };
+    }
+) &
+  XeroSyncSummary;
+
+export type XeroProjectOption = {
+  project_id: string;
+  contact_id: string | null;
+  name: string;
+  status: string;
+  currency_code: string | null;
+  minutes_logged: number | null;
+  job_code: string | null;
+};
+
+export type XeroProjectLinkView = {
+  project_id: string;
+  project_name: string;
+  address: string | null;
+  job_code: string | null;
+  suggested_name: string;
+  link: null | {
+    xero_project_id: string;
+    xero_project_name: string;
+    xero_contact_id: string | null;
+    xero_task_id: string | null;
+    method: 'manual' | 'prefix' | 'created';
+    linked_at: string;
+  };
+};
+
+export type XeroContactOption = {
+  contact_id: string;
+  name: string;
+  email: string | null;
+  is_customer: boolean;
+  status: string;
+};
+
+export type XeroUserOption = {
+  user_id: string;
+  name: string;
+  email: string | null;
+};
+
+export type XeroTimePushResult = {
+  time_entry_id: string;
+  status: 'synced' | 'skipped' | 'failed';
+  xero_time_id?: string | null;
+  error?: string;
+};
+
+export type XeroAuditEntry = {
+  id: string;
+  action: string;
+  detail: string | null;
+  meta: unknown;
+  created_at: string;
+  user_id: string | null;
+};
 
 export const xeroService = {
   async getStatus(companyId: string): Promise<XeroStatusResponse> {
@@ -160,6 +235,110 @@ export const xeroService = {
       reference: payload.reference,
       status: payload.status,
       line_items: payload.line_items,
+    });
+    return data;
+  },
+
+  async listProjects(companyId: string, states = 'INPROGRESS'): Promise<{ projects: XeroProjectOption[] }> {
+    const { data } = await axiosInstance.get<{ projects: XeroProjectOption[] }>('/xero/projects', {
+      params: { company_id: companyId, states },
+    });
+    return data;
+  },
+
+  async listProjectLinks(companyId: string, projectId?: string): Promise<{ projects: XeroProjectLinkView[] }> {
+    const { data } = await axiosInstance.get<{ projects: XeroProjectLinkView[] }>('/xero/projects/links', {
+      params: { company_id: companyId, project_id: projectId },
+    });
+    return data;
+  },
+
+  async linkProject(companyId: string, projectId: string, xeroProjectId: string) {
+    const { data } = await axiosInstance.post('/xero/projects/link', {
+      company_id: companyId,
+      project_id: projectId,
+      xero_project_id: xeroProjectId,
+    });
+    return data;
+  },
+
+  async matchProject(companyId: string, projectId: string, apply = true) {
+    const { data } = await axiosInstance.post<{
+      job_code: string | null;
+      suggested_name: string;
+      matches: XeroProjectOption[];
+      linked: boolean;
+    }>('/xero/projects/match', {
+      company_id: companyId,
+      project_id: projectId,
+      apply,
+    });
+    return data;
+  },
+
+  async matchAllProjects(companyId: string) {
+    const { data } = await axiosInstance.post<{
+      linked: { project_id: string; xero_project_name: string; job_code: string }[];
+      ambiguous: { project_id: string; project_name: string; job_code: string }[];
+      unmatched: { project_id: string; project_name: string; job_code: string | null }[];
+    }>('/xero/projects/match-all', { company_id: companyId });
+    return data;
+  },
+
+  async createProject(companyId: string, projectId: string, contactId: string, name?: string) {
+    const { data } = await axiosInstance.post('/xero/projects/create', {
+      company_id: companyId,
+      project_id: projectId,
+      contact_id: contactId,
+      name,
+    });
+    return data;
+  },
+
+  async unlinkProject(companyId: string, projectId: string) {
+    const { data } = await axiosInstance.delete('/xero/projects/link', {
+      data: { company_id: companyId, project_id: projectId },
+    });
+    return data;
+  },
+
+  async listContacts(companyId: string, search?: string): Promise<{ contacts: XeroContactOption[] }> {
+    const { data } = await axiosInstance.get<{ contacts: XeroContactOption[] }>('/xero/contacts', {
+      params: { company_id: companyId, search },
+    });
+    return data;
+  },
+
+  async listUsers(companyId: string): Promise<{ users: XeroUserOption[] }> {
+    const { data } = await axiosInstance.get<{ users: XeroUserOption[] }>('/xero/users', {
+      params: { company_id: companyId },
+    });
+    return data;
+  },
+
+  async setDefaultUser(companyId: string, xeroUserId: string | null) {
+    const { data } = await axiosInstance.put('/xero/settings', {
+      company_id: companyId,
+      default_xero_user_id: xeroUserId,
+    });
+    return data;
+  },
+
+  async pushTime(companyId: string, opts?: { projectId?: string; timeEntryId?: string }) {
+    const { data } = await axiosInstance.post<{
+      results: XeroTimePushResult[];
+      truncated: boolean;
+    } & XeroSyncSummary>('/xero/time/push', {
+      company_id: companyId,
+      project_id: opts?.projectId,
+      time_entry_id: opts?.timeEntryId,
+    });
+    return data;
+  },
+
+  async listAudit(companyId: string, limit = 20): Promise<{ logs: XeroAuditEntry[] }> {
+    const { data } = await axiosInstance.get<{ logs: XeroAuditEntry[] }>('/xero/audit', {
+      params: { company_id: companyId, limit },
     });
     return data;
   },

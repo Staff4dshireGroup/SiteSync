@@ -12,7 +12,17 @@ export type XeroAuditAction =
   | 'reauth_required'
   | 'invoices_listed'
   | 'invoice_created'
-  | 'accounts_listed';
+  | 'accounts_listed'
+  | 'projects_listed'
+  | 'projects_matched'
+  | 'project_linked'
+  | 'project_created'
+  | 'project_unlinked'
+  | 'contacts_listed'
+  | 'users_listed'
+  | 'default_user_set'
+  | 'time_pushed'
+  | 'time_push_failed';
 
 export async function logXeroAudit(params: {
   companyId?: string | null;

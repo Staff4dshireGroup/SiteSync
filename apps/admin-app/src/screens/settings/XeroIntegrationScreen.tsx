@@ -21,6 +21,7 @@ import {
   type Company,
   type XeroTenantOption,
 } from '@sitesync/shared';
+import { XeroSyncPanel } from './XeroSyncPanel';
 
 const XERO_REDIRECT_URI = process.env.EXPO_PUBLIC_XERO_REDIRECT_URI?.trim() ?? '';
 
@@ -282,6 +283,9 @@ export function XeroIntegrationScreen() {
                   {isXeroConnected(status) && status.connected_at && (
                     <Text style={styles.mutedSmall}>Connected {new Date(status.connected_at).toLocaleString()}</Text>
                   )}
+                  {isXeroConnected(status) && status.xero_tenant_name ? (
+                    <Text style={styles.mutedSmall}>Organisation {status.xero_tenant_name}</Text>
+                  ) : null}
                 </>
               ) : (
                 <Text style={styles.muted}>Status unavailable. Use Refresh.</Text>
@@ -329,6 +333,10 @@ export function XeroIntegrationScreen() {
                 <Text style={styles.secondaryBtnText}>Refresh status</Text>
               </TouchableOpacity>
             </View>
+
+            {selectedCompanyId ? (
+              <XeroSyncPanel companyId={selectedCompanyId} status={status} onChanged={() => void loadStatus()} />
+            ) : null}
 
             <Text style={styles.hint}>
               {Platform.OS === 'web'

@@ -53,9 +53,14 @@ Examples:
 | `XERO_CLIENT_SECRET` | From Xero app configuration |
 | `XERO_REDIRECT_URI` | Same string as registered in Xero (see above) |
 | `JWT_SECRET` | Must match what you use to sign JWTs for `/api/auth/login` (state is a JWT signed with this) |
-| `XERO_TOKEN_ENCRYPTION_KEY` | Optional; 32+ chars recommended for token encryption (else derived from `JWT_SECRET`) |
-| `XERO_SCOPES` | Optional; space-separated OAuth scopes (see §5) |
+| `XERO_TOKEN_ENCRYPTION_KEY` | Optional locally; **set in production**. 32+ characters. Encrypts tokens at rest (otherwise derived from `JWT_SECRET`) |
+| `XERO_SCOPES` | Optional; space-separated OAuth scopes (see §5). Default includes `projects` |
 | `XERO_OAUTH_SUCCESS_REDIRECT` | Optional; after success, redirect browser to this URL with query params |
+| `XERO_TOKEN_REFRESH_JOB` | Off unless `true`. Refreshes tokens before they expire. Also forced off when `SITESYNC_READ_ONLY=true` |
+| `XERO_PUSH_ON_APPROVAL` | Off unless `true`. Approval pushes time to Xero only when this is `true` |
+| `XERO_DEFAULT_TASK_NAME` | Optional. Task used for time entries. Default `Site labour` |
+| `XERO_DEFAULT_CURRENCY` | Optional. Default `GBP` |
+| `XERO_DEFAULT_TASK_RATE` | Optional hourly rate on that task. Default `0` |
 
 Restart the API after any `.env` change.
 
@@ -201,7 +206,7 @@ If you only have **one** Xero org, this usually completes automatically.
 - The backend default is **granular** (see `backend/src/services/xeroOAuth.ts`). Override if needed:
 
 ```env
-XERO_SCOPES=openid profile email offline_access accounting.settings.read accounting.invoices accounting.contacts.read
+XERO_SCOPES=openid profile email offline_access accounting.settings.read accounting.invoices accounting.contacts.read projects
 ```
 
 The default granular set uses **`accounting.invoices`** (not `accounting.transactions` / `accounting.transactions.read`) for apps created on or after 2 March 2026 — Xero maps invoice access to that scope. If you still see **`unauthorized_client` / `Invalid scope for client`** on the Xero login page:
@@ -311,7 +316,7 @@ The backend writes to **`XeroAuditLog`** (e.g. connect started, connect failed, 
 
 ## 8. Optional: background token refresh
 
-If `XERO_TOKEN_REFRESH_JOB=true`, a background job refreshes tokens before expiry (see `backend/src/jobs/xeroTokenRefreshJob.ts`). Interval configurable via `XERO_TOKEN_REFRESH_INTERVAL_MS`.
+If `XERO_TOKEN_REFRESH_JOB=true` and the process is not read-only, a background job refreshes tokens before expiry (see `backend/src/jobs/xeroTokenRefreshJob.ts`). The job does not start when the variable is unset. Interval configurable via `XERO_TOKEN_REFRESH_INTERVAL_MS`.
 
 ---
 
@@ -326,5 +331,58 @@ If `XERO_TOKEN_REFRESH_JOB=true`, a background job refreshes tokens before expir
 | GET | `/api/xero/pending/:id` | JWT | Pending tenant selection |
 | POST | `/api/xero/pending/complete` | JWT | Complete tenant selection |
 | GET | `/api/xero/test/organisation` | JWT | Smoke test Accounting API |
+| GET | `/api/xero/projects` | JWT | Pull in-progress Xero projects (`states` optional) |
+| GET | `/api/xero/projects/links` | JWT | SiteSync projects plus their Xero link |
+| POST | `/api/xero/projects/link` | JWT | Link a SiteSync project to a chosen Xero project |
+| POST | `/api/xero/projects/match` | JWT | Match one project on the Sp/Sc/Sf/Sg/Is job-number prefix |
+| POST | `/api/xero/projects/match-all` | JWT | Link every unique job-number match in the company |
+| POST | `/api/xero/projects/create` | JWT | Create a Xero project (needs `contact_id`) and link it |
+| DELETE | `/api/xero/projects/link` | JWT | Remove the link. Does not delete the Xero project or posted time |
+| GET | `/api/xero/contacts` | JWT | Pull active Xero contacts (`search` optional) |
+| GET | `/api/xero/users` | JWT | Xero project users (for the default time-entry user) |
+| PUT | `/api/xero/settings` | JWT | Set `default_xero_user_id` |
+| POST | `/api/xero/time/push` | JWT | Push approved timesheets. Optional `project_id` or `time_entry_id` |
+| GET | `/api/xero/time/status` | JWT | Sync counts, last error, recent failures |
+| GET | `/api/xero/audit` | JWT | Recent `xero_audit_logs` rows for the company |
 
 All authenticated routes expect **`Authorization: Bearer <JWT>`** from **`POST /api/auth/login`**.
+
+---
+
+## 10. Projects and approved time
+
+Xero project names for this business look like **`Sp1166 - <address>`**. The prefixes are **Sp, Sc, Sf, Sg, Is**. SiteSync reads that code from the project name, then the address.
+
+From **Edit project** (admin app) an admin can:
+
+1. **Match job number** — links the project when exactly one in-progress Xero project has the same code.
+2. **Choose from the Xero list**.
+3. **Create in Xero** — pick a contact. The created name is `Sp1166 - <address>` when both parts exist. A **Site labour** TIME task is created (rate from `XERO_DEFAULT_TASK_RATE`, currency `XERO_DEFAULT_CURRENCY`, default GBP and 0).
+
+**Settings → Xero** shows connection status, last sync, last time push, the last error, recent failed rows, and the audit log. From there an admin can pull contacts and projects, link every unique job code, choose the fallback Xero user, and push approved time.
+
+Push rules:
+
+- Only timesheets with a sign-out and `approved_at` are sent.
+- Duration is whole minutes between sign-in and sign-out (Xero allows 1–59940). A sub-minute shift is sent as 1 minute.
+- The Xero user is the project user with the same email, otherwise the company’s default Xero user.
+- The Idempotency-Key is the SiteSync time entry id, and `xero_time_syncs` stores `synced` plus the Xero time id. A second push to the same organisation is skipped.
+- Approval calls the push only when `XERO_PUSH_ON_APPROVAL=true` and the process is not read-only. A Xero failure does not undo the approval; the error is stored on the sync row and on the connection’s `last_sync_error`.
+- Changing the connected Xero organisation clears project links. Time already posted to the previous organisation is not deleted.
+
+The `projects` scope is required. Accounting granular scopes do not cover the Projects API. Connections made before this scope was requested must be disconnected and connected again.
+
+---
+
+## 11. Xero demo company
+
+1. In [My apps](https://developer.xero.com/app/manage), create a **Web app**. Add the redirect URI that `XERO_REDIRECT_URI` will use. For a phone, that host must be reachable from the phone (LAN IP or https tunnel), not `localhost`.
+2. Put the client id, client secret, redirect URI, and a long `XERO_TOKEN_ENCRYPTION_KEY` in `backend/.env` and in the Render service. Set `EXPO_PUBLIC_XERO_REDIRECT_URI` in `apps/admin-app/.env` to the same redirect string. Restart the API and Expo.
+3. In the Xero developer account, open or create a **Demo Company** (the trial organisation Xero provides for API testing). Add a contact, and either create a project named like `Sp1166 - 12 High Street` or let SiteSync create it.
+4. Add a Xero user whose email matches a SiteSync staff user, or set a default Xero user after connecting. Demo companies often only have the user you log in as, so the default user is the usual path. The timesheet description still contains the SiteSync staff name.
+5. Sign in to SiteSync Admin as a company admin. **Settings → Xero → Connect to Xero**, approve the demo company, and confirm status is **Connected**. If several organisations are listed, pick the demo company.
+6. Edit the SiteSync project and match, pick, or create the Xero project.
+7. Approve a completed timesheet (or use **Push approved time**). In the demo company, open **Projects → the job → time** and confirm one entry. Push again and confirm SiteSync reports it as skipped and Xero does not gain a second row.
+8. Disconnect from Settings and confirm status is disconnected and a later push reports that Xero is not connected.
+
+Production on Render also needs a new admin (and staff) binary from EAS (`eas.json`) so the store builds pick up `EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_XERO_REDIRECT_URI`. Those public values are baked in at build time. The client secret and encryption key stay on the API only.

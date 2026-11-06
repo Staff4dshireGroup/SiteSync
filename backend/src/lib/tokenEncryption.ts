@@ -9,6 +9,9 @@ function deriveKey(): Buffer {
   if (raw && raw.length >= 32) {
     return crypto.createHash('sha256').update(raw, 'utf8').digest();
   }
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('XERO_TOKEN_ENCRYPTION_KEY is required in production');
+  }
   const fallback = process.env.JWT_SECRET || 'dev-xero-key-change-me';
   return crypto.scryptSync(fallback, 'xero-token-salt', 32);
 }

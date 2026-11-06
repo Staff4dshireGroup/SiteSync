@@ -6,6 +6,7 @@ import * as S from '../lib/serialize';
 import { validateAttendanceAtProject } from '../lib/geo';
 import { canUserWorkOnProject } from '../lib/projectAccess';
 import { reverseGeocodeAddress } from '../lib/reverseGeocode';
+import { pushApprovedTime, pushOnApprovalEnabled } from '../services/xeroTimeSync';
 
 const router = Router();
 router.use(authMiddleware);
@@ -281,7 +282,7 @@ router.put('/:id/approve', async (req: AuthedRequest, res) => {
 
   const existing = await prisma.timeEntry.findUnique({
     where: { id: req.params.id },
-    include: { user: true },
+    include: { user: true, project: true },
   });
   if (!existing) return res.status(404).json({ error: 'Not found' });
   if (req.userRole !== 'superadmin' && existing.user.companyId !== req.companyId) {
@@ -292,8 +293,7 @@ router.put('/:id/approve', async (req: AuthedRequest, res) => {
   }
 
   if (role === 'supervisor') {
-    const project = await prisma.project.findUnique({ where: { id: existing.projectId } });
-    if (!project || project.supervisorId !== req.userId) {
+    if (!existing.project || existing.project.supervisorId !== req.userId) {
       return res.status(403).json({ error: 'Only assigned supervisor can approve this timesheet' });
     }
   }
@@ -305,7 +305,29 @@ router.put('/:id/approve', async (req: AuthedRequest, res) => {
       approvedAt: new Date(),
     },
   });
-  res.json(S.timeEntry(updated));
+
+  let xeroSync: { status: string; error?: string; xero_time_id?: string | null } | null = null;
+  if (pushOnApprovalEnabled() && existing.project.companyId) {
+    try {
+      const pushed = await pushApprovedTime({
+        companyId: existing.project.companyId,
+        actorUserId: req.userId,
+        timeEntryId: updated.id,
+        limit: 1,
+      });
+      const first = pushed.results[0];
+      xeroSync = first
+        ? { status: first.status, error: first.error, xero_time_id: first.xero_time_id }
+        : { status: 'skipped', error: 'Nothing to push' };
+    } catch (e) {
+      const message = (e as Error).message;
+      if (!message.includes('No active Xero')) {
+        xeroSync = { status: 'failed', error: message };
+      }
+    }
+  }
+
+  res.json({ ...S.timeEntry(updated), ...(xeroSync ? { xero_sync: xeroSync } : {}) });
 });
 
 export default router;

@@ -1,0 +1,74 @@
+# Staff4dshire Group staging blueprint.
+# Workspace tea-dbmv4dc9v7es73aqvj6g (tom@staff4dshiregroup.com).
+# This file does not replace render.yaml and does not target the existing
+# sitesync-backend service. Apply it only as a Render plan for owner approval.
+# Do not put secret values in this file. Every credential is sync: false.
+
+previews:
+  generation: "off"
+
+services:
+  - type: web
+    name: sitesync-api-s4
+    runtime: node
+    rootDir: backend
+    plan: free
+    region: oregon
+    # Pinned so a plan of this file cannot build main or any other branch.
+    branch: cursor/xero-projects-time-sync-d0b1
+    autoDeployTrigger: "off"
+    healthCheckPath: /health
+    # Generate the Prisma client and compile TypeScript only.
+    # This build must not apply schema changes or load seed data.
+    buildCommand: |
+      npm install --workspaces=false --include=dev
+      npm run db:generate
+      npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: NODE_ENV
+        value: production
+      # Parallel to the live API. Health checks only; no application reads or writes.
+      - key: SITESYNC_READ_ONLY
+        value: "true"
+      - key: XERO_TOKEN_REFRESH_JOB
+        value: "false"
+      - key: XERO_PUSH_ON_APPROVAL
+        value: "false"
+      - key: ONBOARDING_REMINDER_JOB
+        value: "false"
+      - key: SEED_ON_DEPLOY
+        value: "false"
+      # Same Supabase project twydnjdzrfkqivvlurux. Paste in the dashboard. Do not create a database.
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      # Must be the current production values. Do not generate replacements.
+      - key: JWT_SECRET
+        sync: false
+      - key: XERO_TOKEN_ENCRYPTION_KEY
+        sync: false
+      # Set after the service exists. The client id is not stored in git.
+      # The client secret is still outstanding.
+      - key: XERO_CLIENT_ID
+        sync: false
+      - key: XERO_CLIENT_SECRET
+        sync: false
+      # Leave empty until Render assigns a hostname. Do not copy the old onrender.com host.
+      - key: PUBLIC_API_BASE_URL
+        sync: false
+      - key: XERO_REDIRECT_URI
+        sync: false
+      - key: XERO_SCOPES
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        value: developer@sitesync.uk
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false

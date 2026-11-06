@@ -3,6 +3,12 @@ import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { corsOrigin } from './corsConfig';
+import {
+  onboardingReminderJobEnabled,
+  pushOnApprovalEnabled,
+  readOnlyMode,
+  tokenRefreshJobEnabled,
+} from './lib/runtimePolicy';
 import authRoutes from './routes/auth';
 import usersRoutes from './routes/users';
 import companiesRoutes from './routes/companies';
@@ -31,12 +37,29 @@ export function createApp() {
   );
   app.use(express.json({ limit: '10mb' }));
 
+  app.get('/health', (_req, res) => {
+    res.json({
+      ok: true,
+      service: 'sitesync-api',
+      read_only: readOnlyMode(),
+      jobs: {
+        xero_token_refresh: tokenRefreshJobEnabled(),
+        onboarding_reminder: onboardingReminderJobEnabled(),
+        xero_push_on_approval: pushOnApprovalEnabled(),
+      },
+    });
+  });
+
+  app.use((req, res, next) => {
+    if (!readOnlyMode()) return next();
+    res.status(503).json({
+      error: 'read_only',
+      message: 'This SiteSync instance is in staging read-only mode and will not serve or write application data.',
+    });
+  });
+
   const uploadsRoot = path.join(process.cwd(), 'uploads');
   app.use('/files', express.static(uploadsRoot));
-
-  app.get('/health', (_req, res) => {
-    res.json({ ok: true, service: 'sitesync-api' });
-  });
 
   // Match mobile client paths (baseURL is /api, not /api/auth)
   app.post('/api/password-reset/request', (_req, res) => {

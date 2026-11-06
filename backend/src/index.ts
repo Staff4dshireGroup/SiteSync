@@ -14,6 +14,15 @@ import { verifyToken } from './middleware/auth';
 import { prisma } from './db';
 import { startXeroTokenRefreshJob } from './jobs/xeroTokenRefreshJob';
 import { startOnboardingReminderJob } from './jobs/onboardingReminderJob';
+import {
+  assertProductionConfig,
+  onboardingReminderJobEnabled,
+  pushOnApprovalEnabled,
+  readOnlyMode,
+  tokenRefreshJobEnabled,
+} from './lib/runtimePolicy';
+
+assertProductionConfig();
 
 const REQUESTED_PORT = Number(process.env.PORT) || 3001;
 const AUTO_FALLBACK_ENABLED = (process.env.PORT_AUTO_FALLBACK ?? 'true') !== 'false';
@@ -29,6 +38,9 @@ const io = new Server(httpServer, {
 app.set('io', io);
 
 io.use((socket, next) => {
+  if (readOnlyMode()) {
+    return next(new Error('read_only'));
+  }
   const token = socket.handshake.auth?.token as string | undefined;
   if (!token) {
     return next(new Error('Authentication required'));
@@ -99,6 +111,9 @@ function startServer(port: number, attemptsLeft: number) {
     console.log(`Health: http://localhost:${activePort}/health`);
     console.log(
       `Set EXPO_PUBLIC_API_URL=http://localhost:${activePort}/api and EXPO_PUBLIC_SOCKET_URL=http://localhost:${activePort}`,
+    );
+    console.log(
+      `[startup] read_only=${readOnlyMode()} xero_token_refresh=${tokenRefreshJobEnabled()} onboarding_reminder=${onboardingReminderJobEnabled()} xero_push_on_approval=${pushOnApprovalEnabled()}`,
     );
     startXeroTokenRefreshJob();
     startOnboardingReminderJob(prisma, io);
