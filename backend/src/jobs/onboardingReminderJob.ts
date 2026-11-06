@@ -1,13 +1,14 @@
 import type { Server as IoServer } from 'socket.io';
 import type { PrismaClient } from '@prisma/client';
 import { createNotification } from '../lib/createNotification';
+import { onboardingReminderJobEnabled } from '../lib/runtimePolicy';
 
 /**
  * Periodically remind staff/supervisors with incomplete onboarding (no completed_at).
- * Requires ONBOARDING_REMINDER_JOB=true. Does not run in test by default.
+ * Requires ONBOARDING_REMINDER_JOB=true and the process must not be read-only.
  */
 export function startOnboardingReminderJob(prisma: PrismaClient, io: IoServer | undefined): void {
-  if (process.env.ONBOARDING_REMINDER_JOB !== 'true') {
+  if (!onboardingReminderJobEnabled()) {
     return;
   }
   const intervalMs = Number(process.env.ONBOARDING_REMINDER_INTERVAL_MS) || 24 * 60 * 60 * 1000;

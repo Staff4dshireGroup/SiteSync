@@ -1,6 +1,7 @@
 import type { Prisma, XeroTimeSyncStatus } from '@prisma/client';
 import { prisma } from '../db';
 import { logXeroAudit } from '../lib/xeroAudit';
+import { pushOnApprovalEnabled as pushOnApprovalAllowed } from '../lib/runtimePolicy';
 import { scopesIncludeProjects } from './xeroConnectionService';
 import { ensureTaskForLink } from './xeroProjectSync';
 import { createXeroTimeEntry, listXeroProjectUsers } from './xeroProjectsApi';
@@ -308,6 +309,7 @@ export async function getCompanyXeroSummary(companyId: string) {
   };
 }
 
+/** On only when XERO_PUSH_ON_APPROVAL is true and the process is not read-only. */
 export function pushOnApprovalEnabled(): boolean {
-  return process.env.XERO_PUSH_ON_APPROVAL?.trim().toLowerCase() !== 'false';
+  return pushOnApprovalAllowed();
 }

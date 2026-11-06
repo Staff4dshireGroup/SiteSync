@@ -12,7 +12,7 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "backfill:project-chats": "tsx src/scripts/backfill-project-chats.ts",
-    "test": "tsx --test src/services/xeroTimeMapping.test.ts src/services/xeroTokenRefresh.test.ts"
+    "test": "tsx --test src/lib/runtimePolicy.test.ts src/services/xeroTimeMapping.test.ts src/services/xeroTokenRefresh.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

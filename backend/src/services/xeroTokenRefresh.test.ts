@@ -45,15 +45,17 @@ describe('access token refresh policy', () => {
     );
   });
 
-  it('enables the job in production unless it is explicitly switched off', () => {
+  it('stays off unless explicitly enabled, including in production and read-only mode', () => {
     process.env.NODE_ENV = 'production';
     delete process.env.XERO_TOKEN_REFRESH_JOB;
-    assert.equal(tokenRefreshJobEnabled(), true);
+    delete process.env.SITESYNC_READ_ONLY;
+    assert.equal(tokenRefreshJobEnabled(), false);
     process.env.XERO_TOKEN_REFRESH_JOB = 'false';
     assert.equal(tokenRefreshJobEnabled(), false);
-    process.env.NODE_ENV = 'development';
     process.env.XERO_TOKEN_REFRESH_JOB = 'true';
     assert.equal(tokenRefreshJobEnabled(), true);
+    process.env.SITESYNC_READ_ONLY = 'true';
+    assert.equal(tokenRefreshJobEnabled(), false);
   });
 });
 

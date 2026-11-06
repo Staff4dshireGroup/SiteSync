@@ -56,8 +56,8 @@ Examples:
 | `XERO_TOKEN_ENCRYPTION_KEY` | Optional locally; **set in production**. 32+ characters. Encrypts tokens at rest (otherwise derived from `JWT_SECRET`) |
 | `XERO_SCOPES` | Optional; space-separated OAuth scopes (see §5). Default includes `projects` |
 | `XERO_OAUTH_SUCCESS_REDIRECT` | Optional; after success, redirect browser to this URL with query params |
-| `XERO_TOKEN_REFRESH_JOB` | `true` / `false`. Production defaults to on. Refreshes tokens before they expire |
-| `XERO_PUSH_ON_APPROVAL` | Default on. Set `false` to push only from **Settings → Xero** |
+| `XERO_TOKEN_REFRESH_JOB` | Off unless `true`. Refreshes tokens before they expire. Also forced off when `SITESYNC_READ_ONLY=true` |
+| `XERO_PUSH_ON_APPROVAL` | Off unless `true`. Approval pushes time to Xero only when this is `true` |
 | `XERO_DEFAULT_TASK_NAME` | Optional. Task used for time entries. Default `Site labour` |
 | `XERO_DEFAULT_CURRENCY` | Optional. Default `GBP` |
 | `XERO_DEFAULT_TASK_RATE` | Optional hourly rate on that task. Default `0` |
@@ -316,7 +316,7 @@ The backend writes to **`XeroAuditLog`** (e.g. connect started, connect failed, 
 
 ## 8. Optional: background token refresh
 
-If `XERO_TOKEN_REFRESH_JOB=true`, a background job refreshes tokens before expiry (see `backend/src/jobs/xeroTokenRefreshJob.ts`). Interval configurable via `XERO_TOKEN_REFRESH_INTERVAL_MS`.
+If `XERO_TOKEN_REFRESH_JOB=true` and the process is not read-only, a background job refreshes tokens before expiry (see `backend/src/jobs/xeroTokenRefreshJob.ts`). The job does not start when the variable is unset. Interval configurable via `XERO_TOKEN_REFRESH_INTERVAL_MS`.
 
 ---
 
@@ -367,7 +367,7 @@ Push rules:
 - Duration is whole minutes between sign-in and sign-out (Xero allows 1–59940). A sub-minute shift is sent as 1 minute.
 - The Xero user is the project user with the same email, otherwise the company’s default Xero user.
 - The Idempotency-Key is the SiteSync time entry id, and `xero_time_syncs` stores `synced` plus the Xero time id. A second push to the same organisation is skipped.
-- Approval calls the push unless `XERO_PUSH_ON_APPROVAL=false`. A Xero failure does not undo the approval; the error is stored on the sync row and on the connection’s `last_sync_error`.
+- Approval calls the push only when `XERO_PUSH_ON_APPROVAL=true` and the process is not read-only. A Xero failure does not undo the approval; the error is stored on the sync row and on the connection’s `last_sync_error`.
 - Changing the connected Xero organisation clears project links. Time already posted to the previous organisation is not deleted.
 
 The `projects` scope is required. Accounting granular scopes do not cover the Projects API. Connections made before this scope was requested must be disconnected and connected again.

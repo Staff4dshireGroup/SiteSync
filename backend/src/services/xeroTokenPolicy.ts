@@ -1,14 +1,14 @@
+import { tokenRefreshJobEnabled as tokenRefreshAllowed } from '../lib/runtimePolicy';
+
 /** How early to treat an access token as expired (clock skew + in-flight requests). */
 export const ACCESS_TOKEN_REFRESH_SKEW_MS = 120_000;
 
 /** Background job refreshes anything expiring inside this window. */
 export const TOKEN_REFRESH_HORIZON_MS = 15 * 60 * 1000;
 
+/** On only when XERO_TOKEN_REFRESH_JOB is true and the process is not read-only. */
 export function tokenRefreshJobEnabled(): boolean {
-  const flag = process.env.XERO_TOKEN_REFRESH_JOB?.trim().toLowerCase();
-  if (flag === 'true' || flag === '1') return true;
-  if (flag === 'false' || flag === '0') return false;
-  return process.env.NODE_ENV === 'production';
+  return tokenRefreshAllowed();
 }
 
 export function accessTokenNeedsRefresh(
