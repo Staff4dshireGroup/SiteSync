@@ -75,7 +75,10 @@ export function CreateUserScreen() {
       Alert.alert('Saved', 'User created');
       navigation.goBack();
     },
-    onError: (e: Error) => Alert.alert('Error', e.message || 'Could not create user'),
+    onError: (e: Error) => {
+      const serverMsg = (e as { response?: { data?: { error?: string } } }).response?.data?.error;
+      Alert.alert('Error', serverMsg || e.message || 'Could not create user');
+    },
   });
   const inviteMutation = useMutation({
     mutationFn: () => {

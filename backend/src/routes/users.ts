@@ -5,6 +5,7 @@ import { prisma } from '../db';
 import type { AuthedRequest } from '../middleware/auth';
 import { authMiddleware, effectiveRole } from '../middleware/auth';
 import * as S from '../lib/serialize';
+import { claimEmail, freedEmail } from '../lib/userEmail';
 
 const router = Router();
 router.use(authMiddleware);
@@ -116,6 +117,11 @@ router.post('/', async (req: AuthedRequest, res) => {
   }
   if (!companyId) return res.status(400).json({ error: 'company_id required' });
 
+  // A deleted user's email is freed so the same address can be used again.
+  if (await claimEmail(email)) {
+    return res.status(409).json({ error: 'A user with this email already exists.' });
+  }
+
   const passwordHash = await bcrypt.hash(String(password), 10);
   const role = (body.role ?? 'staff') as UserRole;
   if (role === 'superadmin') {
@@ -194,7 +200,10 @@ router.delete('/:id', async (req: AuthedRequest, res) => {
   if (req.userRole !== 'superadmin' && existing.companyId !== req.companyId) {
     return res.status(403).json({ error: 'Forbidden' });
   }
-  await prisma.user.update({ where: { id: req.params.id }, data: { deletedAt: new Date() } });
+  await prisma.user.update({
+    where: { id: req.params.id },
+    data: { deletedAt: new Date(), email: freedEmail(existing.email, existing.id) },
+  });
   res.status(204).send();
 });
 

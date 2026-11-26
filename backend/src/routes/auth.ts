@@ -4,6 +4,7 @@ import type { UserRole } from '@prisma/client';
 import { prisma } from '../db';
 import { signToken, authMiddleware, type AuthedRequest } from '../middleware/auth';
 import * as S from '../lib/serialize';
+import { claimEmail } from '../lib/userEmail';
 
 const router = Router();
 const normalizeToken = (raw: string) => raw.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
@@ -20,7 +21,7 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ error: 'email and password required' });
   }
   const user = await prisma.user.findUnique({ where: { email: String(email).toLowerCase() } });
-  if (!user || !user.isActive) {
+  if (!user || !user.isActive || user.deletedAt != null) {
     return res.status(401).json({ error: 'Invalid credentials' });
   }
   const ok = await bcrypt.compare(password, user.passwordHash);
@@ -70,7 +71,7 @@ router.post('/register-invitation', async (req, res) => {
     return res.status(400).json({ error: 'Email does not match invitation' });
   }
 
-  const existing = await prisma.user.findUnique({ where: { email: inviteEmail } });
+  const existing = await claimEmail(inviteEmail);
   if (existing) {
     return res.status(409).json({ error: 'Email already registered' });
   }
@@ -149,7 +150,7 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ error: 'email, password, first_name, last_name required' });
   }
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await claimEmail(email);
   if (existing) {
     return res.status(409).json({ error: 'Email already registered' });
   }
