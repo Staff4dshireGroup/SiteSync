@@ -83,8 +83,21 @@ const upload = multer({
 
 const profileUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024 },
+  limits: { fileSize: 25 * 1024 * 1024 },
 });
+
+/** Run a multer single-file middleware and turn size errors into a clear 413 message. */
+function singleFile(mw: ReturnType<typeof upload.single>, maxMb: number) {
+  return (req: AuthedRequest, res: import('express').Response, next: import('express').NextFunction) => {
+    mw(req, res, (err: unknown) => {
+      if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ error: `That file is too large. The maximum size is ${maxMb} MB.` });
+      }
+      if (err) return next(err);
+      return next();
+    });
+  };
+}
 
 function handler(folder: 'chat' | 'profile') {
   return async (req: AuthedRequest, res: import('express').Response) => {
@@ -102,7 +115,7 @@ function handler(folder: 'chat' | 'profile') {
   };
 }
 
-router.post('/chat', upload.single('file'), handler('chat'));
-router.post('/profile', profileUpload.single('file'), handler('profile'));
+router.post('/chat', singleFile(upload.single('file'), 15), handler('chat'));
+router.post('/profile', singleFile(profileUpload.single('file'), 25), handler('profile'));
 
 export default router;

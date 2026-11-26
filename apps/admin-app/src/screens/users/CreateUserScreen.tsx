@@ -44,7 +44,7 @@ export function CreateUserScreen() {
     }
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.85,
+      quality: 0.6,
     });
     if (!res.canceled && res.assets[0]?.uri) {
       setPhotoUri(res.assets[0].uri);
