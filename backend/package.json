@@ -14,6 +14,7 @@
     "backfill:project-chats": "tsx src/scripts/backfill-project-chats.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1178.0",
     "@prisma/client": "^5.22.0",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",

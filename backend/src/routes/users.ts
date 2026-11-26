@@ -110,9 +110,6 @@ router.post('/', async (req: AuthedRequest, res) => {
   if (!email || !password) {
     return res.status(400).json({ error: 'email and password required' });
   }
-  if (!photoUrl) {
-    return res.status(400).json({ error: 'photo_url required' });
-  }
   let companyId = body.company_id ?? body.companyId ?? req.companyId;
   if (req.userRole !== 'superadmin') {
     companyId = req.companyId;
@@ -132,7 +129,7 @@ router.post('/', async (req: AuthedRequest, res) => {
       lastName: String(body.last_name ?? body.lastName ?? ''),
       role,
       companyId,
-      photoUrl,
+      photoUrl: photoUrl || undefined,
       isActive: body.is_active ?? body.isActive ?? true,
     },
   });

@@ -53,12 +53,13 @@ export function CreateUserScreen() {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!photoUri) throw new Error('Profile photo is required');
-      const photoUrl = await uploadsService.uploadProfilePhoto({
-        uri: photoUri,
-        name: 'profile.jpg',
-        type: 'image/jpeg',
-      });
+      const photoUrl = photoUri
+        ? await uploadsService.uploadProfilePhoto({
+            uri: photoUri,
+            name: 'profile.jpg',
+            type: 'image/jpeg',
+          })
+        : undefined;
       return usersService.create({
         email: email.trim().toLowerCase(),
         password,
@@ -128,7 +129,7 @@ export function CreateUserScreen() {
       <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} />
       <Text style={styles.label}>Last name</Text>
       <TextInput style={styles.input} value={lastName} onChangeText={setLastName} />
-      <Text style={styles.label}>Profile photo *</Text>
+      <Text style={styles.label}>Profile photo (optional)</Text>
       <TouchableOpacity style={styles.photoBtn} onPress={pickPhoto}>
         <Text style={styles.photoBtnText}>{photoUri ? 'Change photo' : 'Choose photo'}</Text>
       </TouchableOpacity>

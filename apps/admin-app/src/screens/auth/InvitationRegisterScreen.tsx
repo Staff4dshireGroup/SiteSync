@@ -91,10 +91,6 @@ export function InvitationRegisterScreen({ route, navigation }: Props) {
       Alert.alert('Error', 'Fill in invitation code, name and password');
       return;
     }
-    if (!photoUri) {
-      Alert.alert('Error', 'Profile photo is required');
-      return;
-    }
     setSubmitting(true);
     try {
       const res = await registerInvitation({
@@ -104,12 +100,14 @@ export function InvitationRegisterScreen({ route, navigation }: Props) {
         password: password.trim(),
         role_mapping: 'invite_link',
       });
-      const photoUrl = await uploadsService.uploadProfilePhoto({
-        uri: photoUri,
-        name: 'profile.jpg',
-        type: 'image/jpeg',
-      });
-      await usersService.update(res.user.id, { photo_url: photoUrl });
+      if (photoUri) {
+        const photoUrl = await uploadsService.uploadProfilePhoto({
+          uri: photoUri,
+          name: 'profile.jpg',
+          type: 'image/jpeg',
+        });
+        await usersService.update(res.user.id, { photo_url: photoUrl });
+      }
       await refreshUser();
       await logout();
       Alert.alert('Account created', 'Sign in with your email and password.', [
@@ -208,7 +206,7 @@ export function InvitationRegisterScreen({ route, navigation }: Props) {
           onChangeText={setPassword}
           secureTextEntry
         />
-        <Text style={styles.label}>Profile photo</Text>
+        <Text style={styles.label}>Profile photo (optional)</Text>
         <TouchableOpacity style={styles.secondaryBtn} onPress={pickPhoto}>
           <Text style={styles.secondaryText}>{photoUri ? 'Change photo' : 'Choose photo'}</Text>
         </TouchableOpacity>

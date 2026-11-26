@@ -30,6 +30,7 @@ type Draft = {
   role: User['role'];
   photo_url: string;
   is_active: boolean;
+  new_password: string;
 };
 
 function initialsForUser(user: User): string {
@@ -94,7 +95,17 @@ function UserEditModal({
     role: user.role,
     photo_url: user.photo_url ?? '',
     is_active: user.is_active,
+    new_password: '',
   });
+
+  const trySave = () => {
+    const pw = draft.new_password.trim();
+    if (pw && pw.length < 8) {
+      Alert.alert('Password too short', 'The new password must be at least 8 characters.');
+      return;
+    }
+    void onSave(draft);
+  };
 
   const pickPhoto = () => {
     const doUpload = async (uri: string) => {
@@ -166,6 +177,22 @@ function UserEditModal({
                 </TouchableOpacity>
               ))}
             </View>
+            <Text style={styles.inputLabel}>Set new password (leave blank to keep the current one)</Text>
+            <TextInput
+              style={styles.input}
+              autoCapitalize="none"
+              autoCorrect={false}
+              secureTextEntry
+              placeholder="At least 8 characters"
+              placeholderTextColor="#8c8c8c"
+              value={draft.new_password}
+              onChangeText={(v) => setDraft((p) => ({ ...p, new_password: v }))}
+            />
+            {draft.new_password.trim() ? (
+              <Text style={styles.passwordHint}>
+                They will be asked to choose their own password the next time they sign in.
+              </Text>
+            ) : null}
             <TouchableOpacity
               style={[styles.activeToggle, draft.is_active && styles.activeToggleOn]}
               onPress={() => setDraft((p) => ({ ...p, is_active: !p.is_active }))}
@@ -183,7 +210,7 @@ function UserEditModal({
               <TouchableOpacity style={styles.cancelBtn} onPress={onClose} disabled={saving || deleting}>
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.saveBtn, saving && styles.btnDisabled]} onPress={() => void onSave(draft)} disabled={saving || deleting}>
+              <TouchableOpacity style={[styles.saveBtn, saving && styles.btnDisabled]} onPress={trySave} disabled={saving || deleting}>
                 {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>Save changes</Text>}
               </TouchableOpacity>
             </View>
@@ -235,6 +262,9 @@ export function UsersScreen() {
         role: draft.role,
         photo_url: draft.photo_url,
         is_active: draft.is_active,
+        ...(draft.new_password.trim()
+          ? { password: draft.new_password.trim(), must_change_password: true }
+          : {}),
       } as Partial<User>),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -425,6 +455,7 @@ const styles = StyleSheet.create({
   roleChipActive: { borderColor: '#4a026f', backgroundColor: '#f0e8f8' },
   roleChipText: { color: '#666', textTransform: 'capitalize', fontWeight: '600' },
   roleChipTextActive: { color: '#4a026f' },
+  passwordHint: { color: '#6f6f78', fontSize: 12, marginTop: 6, marginBottom: 8 },
   activeToggle: {
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.7)',

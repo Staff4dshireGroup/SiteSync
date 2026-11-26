@@ -12,6 +12,13 @@ import type {
   OnboardingRecord,
 } from '@prisma/client';
 
+/** iOS (ATS) refuses http:// images; upgrade any non-local http URL to https. */
+function secureUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  if (/^http:\/\/(localhost|127\.|10\.|192\.168\.)/.test(url)) return url;
+  return url.replace(/^http:\/\//, 'https://');
+}
+
 export function user(u: PrismaUser) {
   return {
     id: u.id,
@@ -20,7 +27,7 @@ export function user(u: PrismaUser) {
     last_name: u.lastName,
     role: u.role,
     company_id: u.companyId,
-    photo_url: u.photoUrl ?? undefined,
+    photo_url: secureUrl(u.photoUrl),
     must_change_password: u.mustChangePassword,
     is_active: u.isActive,
     last_login_at: u.lastLoginAt?.toISOString(),
